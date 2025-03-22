@@ -28,7 +28,7 @@ def init_board():
         {"name": "Zoning Zephyr", "type": "property", "cost": 120, "connection_degree": 4},
         {"name": "Corruption Corridor", "type": "property", "cost": 200, "connection_degree": 1},
         {"name": "Easement Error", "type": "chance", "description": "Legal challenge! Lose a turn."},
-        {"name": "Trail Tussle", "type": "risk", "description": "Conflict over trail plans; pay $50 penalty."},
+        {"name": "Trail Tussle", "type": "risk", "description": "Conflict over trail plans; pay a $50 penalty."},
         {"name": "Municipal Maze", "type": "property", "cost": 130, "connection_degree": 5},
         {"name": "Defamation Drive", "type": "property", "cost": 160, "connection_degree": 3},
     ]
@@ -37,7 +37,7 @@ def init_board():
     # Additional themes to fill the board
     themes = [
         {"name": "Retaliation Road", "type": "property", "cost": 140, "connection_degree": 2},
-        {"name": "Intimidation Intersection", "type": "risk", "description": "Threats abound! Pay $50 penalty."},
+        {"name": "Intimidation Intersection", "type": "risk", "description": "Threats abound! Pay a $50 penalty."},
         {"name": "Neighbor Nexus", "type": "property", "cost": 110, "connection_degree": 4},
         {"name": "Proxy Plaza", "type": "chance", "description": "Move forward 3 spaces."},
         {"name": "Legal Labyrinth", "type": "property", "cost": 180, "connection_degree": 2},
@@ -58,9 +58,9 @@ def get_board_index(row, col):
     """
     For an 11x11 grid:
       - Top row (row 0): index = col (col 0 to 10)
-      - Right column (col 10, row 1 to 9): index = 10 + row  (11 to 19)
-      - Bottom row (row 10): index = 20 + (10 - col) (col 10-> index 20, col 0 -> index 30)
-      - Left column (col 0, row 9 to 1): index = 31 + (9 - row) (row 9 -> 31, row 1 -> 39)
+      - Right column (col 10, row 1–9): index = 10 + row (11 to 19)
+      - Bottom row (row 10): index = 20 + (10 – col) (col 10→index 20, col 0→index 30)
+      - Left column (col 0, row 9–1): index = 31 + (9 – row) (row 9→index 31, row 1→index 39)
     Returns the board index if (row, col) is on the perimeter, otherwise returns None.
     """
     if row == 0:
@@ -68,9 +68,9 @@ def get_board_index(row, col):
     elif col == 10 and 1 <= row <= 9:
         return 10 + row  # 11 to 19
     elif row == 10:
-        return 20 + (10 - col)  # col10->20, col9->21, ..., col0->30
+        return 20 + (10 - col)  # col10->20, col0->30
     elif col == 0 and 1 <= row <= 9:
-        return 31 + (9 - row)  # row9->31, row8->32, ..., row1->39
+        return 31 + (9 - row)  # row9->31, row1->39
     else:
         return None
 
@@ -115,7 +115,7 @@ if st.button("Roll Dice"):
     
     st.session_state.message = f"{player['name']} rolled {die1} and {die2} (total {roll_value}) and landed on '{current_space['name']}'."
     
-    # Process space effect
+    # Process space effect based on its type
     if current_space.get('type') == 'property' and 'owner' not in current_space:
         st.session_state.message += " This property is available for purchase."
     elif current_space.get('type') == 'chance':
@@ -131,7 +131,10 @@ if st.button("Roll Dice"):
     
     st.session_state.players[current_turn] = player
     st.session_state.current_turn = (current_turn + 1) % len(st.session_state.players)
-    st.experimental_rerun()
+    try:
+        st.experimental_rerun()
+    except AttributeError:
+        pass
 
 st.write(st.session_state.message)
 
@@ -153,7 +156,10 @@ if current_space.get('type') == 'property' and 'owner' not in current_space:
         else:
             st.session_state.message = f"{current_player['name']} does not have enough money to buy '{current_space['name']}'."
         st.session_state.players[prev_turn] = current_player
-        st.experimental_rerun()
+        try:
+            st.experimental_rerun()
+        except AttributeError:
+            pass
 
 # -----------------------------------------------------------------------------
 # Option: Reset Game
@@ -162,22 +168,32 @@ if st.button("Reset Game"):
     for key in ['players', 'current_turn', 'board', 'message']:
         if key in st.session_state:
             del st.session_state[key]
-    st.experimental_rerun()
+    try:
+        st.experimental_rerun()
+    except AttributeError:
+        pass
 
 # -----------------------------------------------------------------------------
 # Display Interactive Board View Arranged Around a Square Perimeter
 # -----------------------------------------------------------------------------
 st.write("### Interactive Board View (Square Perimeter)")
 
-# We want an 11x11 grid where only the border cells are filled with board spaces.
-grid_size = 11
-# Create an empty list for rows
+# Add custom CSS to force uniform button sizes.
+st.markdown("""
+    <style>
+    div.stButton > button {
+         width: 100%;
+         height: 100px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+grid_size = 11  # 11x11 grid; border cells hold our 40 board spaces.
 for row in range(grid_size):
-    cols = st.columns(grid_size)
+    cols = st.columns([1]*grid_size)
     for col in range(grid_size):
         board_index = get_board_index(row, col)
         if board_index is not None:
-            # Display a button for this board space
             if cols[col].button(f"{board_index}: {st.session_state.board[board_index]['name']}", key=f"space_{row}_{col}"):
                 st.info(
                     f"**Space {board_index}:** {st.session_state.board[board_index]['name']}\n"
@@ -186,5 +202,4 @@ for row in range(grid_size):
                     (f"Cost: ${st.session_state.board[board_index].get('cost')}" if st.session_state.board[board_index].get('cost') else "")
                 )
         else:
-            # Leave the interior blank
             cols[col].empty()
