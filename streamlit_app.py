@@ -24,7 +24,7 @@ def init_board():
         {"name": "VOM Venture", "type": "property", "cost": 100, "connection_degree": 3},
         {"name": "Trail of Trials", "type": "chance", "description": "A twist of fate! Advance 2 spaces."},
         {"name": "Kim’s Crossroads", "type": "property", "cost": 150, "connection_degree": 2},
-        {"name": "Council Conundrum", "type": "risk", "description": "Unexpected fines. Pay $50 penalty."},
+        {"name": "Council Conundrum", "type": "risk", "description": "Unexpected fines. Pay a $50 penalty."},
         {"name": "Zoning Zephyr", "type": "property", "cost": 120, "connection_degree": 4},
         {"name": "Corruption Corridor", "type": "property", "cost": 200, "connection_degree": 1},
         {"name": "Easement Error", "type": "chance", "description": "Legal challenge! Lose a turn."},
@@ -37,14 +37,14 @@ def init_board():
     # Additional themes to fill the board
     themes = [
         {"name": "Retaliation Road", "type": "property", "cost": 140, "connection_degree": 2},
-        {"name": "Intimidation Intersection", "type": "risk", "description": "Threats abound! Pay a $50 penalty."},
+        {"name": "Intimidation Intersection", "type": "risk", "description": "Threats abound! Pay a penalty between $75 and $200."},
         {"name": "Neighbor Nexus", "type": "property", "cost": 110, "connection_degree": 4},
         {"name": "Proxy Plaza", "type": "chance", "description": "Move forward 3 spaces."},
         {"name": "Legal Labyrinth", "type": "property", "cost": 180, "connection_degree": 2},
-        {"name": "Complaint Court", "type": "risk", "description": "Legal fees! Pay $75."},
+        {"name": "Complaint Court", "type": "risk", "description": "Legal fees! Pay a penalty between $75 and $200."},
         {"name": "Settlement Street", "type": "property", "cost": 160, "connection_degree": 3},
         {"name": "Dispute Drive", "type": "chance", "description": "Draw a card: Advance 2 spaces."},
-        {"name": "Fines Fee Lane", "type": "risk", "description": "Pay a $100 fine."},
+        {"name": "Fines Fee Lane", "type": "risk", "description": "Ridiculous fine! Pay a penalty between $100 and $250."},
         {"name": "Appeal Avenue", "type": "property", "cost": 150, "connection_degree": 4},
     ]
     while len(board) < 40:
@@ -88,11 +88,29 @@ if 'board' not in st.session_state:
     st.session_state.board = init_board()
 if 'message' not in st.session_state:
     st.session_state.message = ""
+if 'game_over' not in st.session_state:
+    st.session_state.game_over = False
+
+# -----------------------------------------------------------------------------
+# Check for Game Over
+# -----------------------------------------------------------------------------
+def check_game_over():
+    # If any player's money is 0 or less, set game_over flag.
+    for player in st.session_state.players:
+        if player['money'] <= 0:
+            st.session_state.message = f"Game over! {player['name']} is bankrupt."
+            st.session_state.game_over = True
+            break
 
 # -----------------------------------------------------------------------------
 # UI: Title and Player Status
 # -----------------------------------------------------------------------------
 st.title("VOM Monopoly: The GO Bond Edition (Streamlit Version)")
+if st.session_state.game_over:
+    st.error(st.session_state.message)
+    st.button("Reset Game")  # Offer a reset button when game over.
+    st.stop()
+
 st.subheader(f"Current Turn: {st.session_state.players[st.session_state.current_turn]['name']}")
 st.write("**Player Status:**")
 for player in st.session_state.players:
@@ -121,7 +139,8 @@ if st.button("Roll Dice"):
     elif current_space.get('type') == 'chance':
         st.session_state.message += " Chance card: " + current_space.get('description', '')
     elif current_space.get('type') == 'risk':
-        penalty = 50
+        # Increase penalty severity and randomness
+        penalty = random.choice([75, 100, 125, 150, 175, 200])
         player['money'] -= penalty
         st.session_state.message += f" Obstacle encountered! {player['name']} loses ${penalty}."
     elif current_space.get('type') == 'blessing':
@@ -130,10 +149,13 @@ if st.button("Roll Dice"):
         st.session_state.message += f" Magical blessing! {player['name']} gains ${bonus}."
     
     st.session_state.players[current_turn] = player
-    st.session_state.current_turn = (current_turn + 1) % len(st.session_state.players)
+    # Check if game is over before advancing turn.
+    check_game_over()
+    if not st.session_state.game_over:
+        st.session_state.current_turn = (current_turn + 1) % len(st.session_state.players)
     try:
         st.experimental_rerun()
-    except AttributeError:
+    except Exception:
         pass
 
 st.write(st.session_state.message)
@@ -156,21 +178,22 @@ if current_space.get('type') == 'property' and 'owner' not in current_space:
         else:
             st.session_state.message = f"{current_player['name']} does not have enough money to buy '{current_space['name']}'."
         st.session_state.players[prev_turn] = current_player
+        check_game_over()
         try:
             st.experimental_rerun()
-        except AttributeError:
+        except Exception:
             pass
 
 # -----------------------------------------------------------------------------
 # Option: Reset Game
 # -----------------------------------------------------------------------------
 if st.button("Reset Game"):
-    for key in ['players', 'current_turn', 'board', 'message']:
+    for key in ['players', 'current_turn', 'board', 'message', 'game_over']:
         if key in st.session_state:
             del st.session_state[key]
     try:
         st.experimental_rerun()
-    except AttributeError:
+    except Exception:
         pass
 
 # -----------------------------------------------------------------------------
@@ -184,6 +207,7 @@ st.markdown("""
     div.stButton > button {
          width: 100%;
          height: 100px;
+         font-size: 0.8rem;
     }
     </style>
     """, unsafe_allow_html=True)
